@@ -1,0 +1,6 @@
+*.root
+*pcm
+*tmp
+*Dict.h
+*Dict.cxx
+
