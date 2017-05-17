@@ -12,7 +12,7 @@
 #include <stdexcept>
 #include <iostream>
 
-//using bufType = std::int8_t;
+
 using sizeType = int;
 
 template <class T, class H>
@@ -77,7 +77,7 @@ template <class T, class H>
   /// expand space for new objects
   void  expand();
 
-  /// get raw pointer
+  /// get raw pointer on the buffer, can be sent to another process
   char*               getPtr()    const {return mPtr.get();}
 
   /// returns a buffer pointer (releases the ownership) and reset the container
@@ -86,6 +86,7 @@ template <class T, class H>
   /// return total size in bytes
   sizeType            sizeInBytes() const {return getHeader()->sizeInBytes;}
 
+  /// add objects stored in the container to vector<T> branch in the supplied tree
   void AddToTree(TTree* tree, const std::string& brName);
   
  protected:

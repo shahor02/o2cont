@@ -27,14 +27,15 @@ void tst()
   
   float b = 5.0f; // B-field
 
+  // here we create some track in the container
   for (int i=0;i<10;i++) {
     //
     TrackParCov tr0(0.f,0.f,arp,arc);
     tr0.PropagateTo(float(1+(i*10)%100),b);
-    cnt.push_back(tr0);
+    cnt.push_back(tr0);      // track copy 
     //
-    TrackParCov* tr1 = cnt.emplace_back(0.,1., arp,arc);
-    tr1->PropagateTo(float(5+(i*10)%100),b);
+    TrackParCov* tr1 = cnt.emplace_back(0.,1., arp,arc); // or create in the array directly
+    tr1->PropagateTo(float(5+(i*10)%100),b); 
     //
   }
 
@@ -52,7 +53,7 @@ void tst()
   delete flin;
   //
   //======================================================================
-  // Test transfer of raw pointers, makes sense only of plan data objects
+  // Test transfer of raw pointers, makes sense only for plain data objects
   //
   int nb = 0;
   char* pntr = 0;
@@ -88,9 +89,12 @@ void tst()
   //======================================================================
   // Test output to TTree
   //
+  // For debug purposes (also until the messaging is fully operational) we need
+  // to be able to store objects as vectors in the root tree 
+  //
   TFile* fltree = TFile::Open("contTree.root","recreate");
   TTree* tree = new TTree("tstTree","testTree");
-  for (int i=0;i<1000;i++) {
+  for (int i=0;i<100;i++) {
     // modifiy slightly the tracks to simulate new event
     for (int j=cnt.size();j--;) {
       auto trc = cnt[j];
