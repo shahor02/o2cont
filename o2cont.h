@@ -3,6 +3,7 @@
 
 #include <TTree.h>
 #include <TBranch.h>
+#include <TBranchElement.h>
 #include <TBuffer.h>
 #include <TObject.h>
 #include <memory>
@@ -98,6 +99,9 @@ template <class T, class H>
   
   // offset of data wrt buffer start: account for Header + padding after Header block to respect T alignment
   constexpr static sizeType dataOffset = sizeof(Header) + sizeof(Header)%alignof(T); 
+
+  // for the debug storage in TTree we need to extract corresponding STL vector address 
+  std::vector<T>* getVectorAddress(const TBranch* br) const;
   
   /// get pointer on the container
   // std::unique_ptr<char[]> getUPtr()  const {return mPtr;}
@@ -334,24 +338,56 @@ template<class T, class H>
     exit(1);
   }
 
-  std::vector<T> *vc = 0;
+  std::unique_ptr<std::vector<T>> vp;
   TBranch* br = tree->GetBranch(brName.data());
-
+  
   if (!br) { // need to create branch
-    tree->Branch(brName.data(), &vc);
+    vp.reset( new  std::vector<T> );
+    br = tree->Branch(brName.data(), vp.get());
     std::cout << "Added branch "<< brName << " to tree " << tree->GetName() << std::endl;
   }
   else {
-    vc = *reinterpret_cast<std::vector<T>**>(br->GetAddress());
+    vp.reset( getVectorAddress(br) );
   }
-
+  try {
+    if (!vp) {
+      throw "failed to get vector address";
+    }
+  } catch(const char* msg) {
+    std::cerr << msg << ": branchName: " << brName  << std::endl;
+  }  
+  
   // fill objects
+  vp.get()->clear();
   auto n = size();
   for (auto i=0;i<n;i++) {
-    (*vc).push_back( *(*this)[i] );
+    vp.get()->push_back( *(*this)[i] );
   } 
-  //
+
+  vp.release(); // pointer will be managed by the tree
 }
 
+//-------------------------------------------------------------------
+template<class T, class H>
+  std::vector<T>* Container<T,H>::getVectorAddress(const TBranch* br) const
+{
+  /**
+   * Extract vector used to fill the brach
+   */
+
+  if (br==nullptr) return nullptr;
+  
+  try { // we know how to extract valid address of STL collection from TBranchElement
+    if (!br->InheritsFrom(TBranchElement::Class()))  {
+      throw "Expected branch class is not TBranchElement";
+    }
+  } catch(const char* msg) {
+    std::cerr << msg << std::endl;
+    exit(1);
+  }
+
+  return reinterpret_cast<std::vector<T>*>(reinterpret_cast<const TBranchElement*>(br)->GetObject());
+  
+}
 
 #endif

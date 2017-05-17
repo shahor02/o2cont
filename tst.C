@@ -72,7 +72,7 @@ void tst()
   
   // Write to bin file the raw pointer resetting the original object
   nb = cntroot->sizeInBytes();
-  unique_ptr<char[]> tmpPtr( cntroot->release() ); // this will reset cntroot
+  std::unique_ptr<char[]> tmpPtr( cntroot->release() ); // this will reset cntroot
   writeToBinFile(tmpPtr.get(),nb,"containerTest1.bin");
   delete[] tmpPtr.release(); // just to dispose unnecessary buffer
   //
