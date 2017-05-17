@@ -86,7 +86,7 @@ template <class T, class H>
   /// return total size in bytes
   sizeType            sizeInBytes() const {return getHeader()->sizeInBytes;}
 
-  void AddToTree(TTree* tree, const std::string& brName) const;
+  void AddToTree(TTree* tree, const std::string& brName);
   
  protected:
 
@@ -99,17 +99,12 @@ template <class T, class H>
   
   // offset of data wrt buffer start: account for Header + padding after Header block to respect T alignment
   constexpr static sizeType dataOffset = sizeof(Header) + sizeof(Header)%alignof(T); 
-
-  // for the debug storage in TTree we need to extract corresponding STL vector address 
-  std::vector<T>* getVectorAddress(const TBranch* br) const;
-  
-  /// get pointer on the container
-  // std::unique_ptr<char[]> getUPtr()  const {return mPtr;}
-  
+    
  protected:
   
-  std::unique_ptr<char[]> mPtr;  // pointer on continuos block containing full object data
-
+  std::unique_ptr<char[]> mPtr;                //! pointer on continuos block containing full object data
+  std::unique_ptr<std::vector<T>> mVecForTree; //! vector for writing objects into the tree
+  
   ClassDef(Container,1)
 };
 
@@ -117,7 +112,7 @@ template <class T, class H>
 
 //-------------------------------------------------------------------
 template <class T, class H>
-  Container<T,H>::Container(sizeType iniSize, int expPol) : mPtr(nullptr)
+  Container<T,H>::Container(sizeType iniSize, int expPol) : mPtr(nullptr), mVecForTree(nullptr)
   {
     /**
      * Creates container for objects of 
@@ -321,7 +316,7 @@ template<class T, class H>
 
 //-------------------------------------------------------------------
 template<class T, class H>
-  void Container<T,H>::AddToTree(TTree* tree, const std::string& brName) const
+  void Container<T,H>::AddToTree(TTree* tree, const std::string& brName)
 {
   /**
    * Add T-class objects of the container to std::vector<T> branch (create if needed) in the tree.
@@ -338,56 +333,24 @@ template<class T, class H>
     exit(1);
   }
 
-  std::unique_ptr<std::vector<T>> vp;
+  if (!mVecForTree) {
+    mVecForTree.reset( new  std::vector<T> );
+  }
+  std::vector<T>* vp = mVecForTree.get();
+
   TBranch* br = tree->GetBranch(brName.data());
-  
   if (!br) { // need to create branch
-    vp.reset( new  std::vector<T> );
-    br = tree->Branch(brName.data(), vp.get());
+    br = tree->Branch(brName.data(), vp);
     std::cout << "Added branch "<< brName << " to tree " << tree->GetName() << std::endl;
   }
-  else {
-    vp.reset( getVectorAddress(br) );
-  }
-  try {
-    if (!vp) {
-      throw "failed to get vector address";
-    }
-  } catch(const char* msg) {
-    std::cerr << msg << ": branchName: " << brName  << std::endl;
-  }  
   
   // fill objects
-  vp.get()->clear();
+  vp->clear();
   auto n = size();
   for (auto i=0;i<n;i++) {
-    vp.get()->push_back( *(*this)[i] );
+    vp->push_back( *(*this)[i] );
   } 
 
-  vp.release(); // pointer will be managed by the tree
-}
-
-//-------------------------------------------------------------------
-template<class T, class H>
-  std::vector<T>* Container<T,H>::getVectorAddress(const TBranch* br) const
-{
-  /**
-   * Extract vector used to fill the brach
-   */
-
-  if (br==nullptr) return nullptr;
-  
-  try { // we know how to extract valid address of STL collection from TBranchElement
-    if (!br->InheritsFrom(TBranchElement::Class()))  {
-      throw "Expected branch class is not TBranchElement";
-    }
-  } catch(const char* msg) {
-    std::cerr << msg << std::endl;
-    exit(1);
-  }
-
-  return reinterpret_cast<std::vector<T>*>(reinterpret_cast<const TBranchElement*>(br)->GetObject());
-  
 }
 
 #endif
