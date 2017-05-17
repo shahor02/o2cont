@@ -2,15 +2,15 @@
 CC = g++
 CFLAGS = -g -Wall -Weffc++ -fPIC -m64 -std=c++11
 LFLAGS = -L$(ROOTSYS)/lib -L$(O2_ROOT)/lib
-INC =	-I$(ROOTSYS)/include  -I$(O2_ROOT)/include -I./
+INC =	-I$(ROOTSYS)/include  -I$(O2_ROOT)/include -I$(O2_ROOT)/include/  -I./
 TGT =	libCont.so
 DICT=	ContDict.cxx
 DICTO=	ContDict.o
 
-SRC = 	o2cont.cxx TrackPar.cxx
+SRC = 	o2cont.cxx
 
 
-HDR =	$(SRC:.cxx=.h)
+HDR =	$(SRC:.cxx=.h) $(O2_ROOT)/include/DetectorsBase/Track.h
 
 OBJ = 	$(SRC:.cxx=.o)
 

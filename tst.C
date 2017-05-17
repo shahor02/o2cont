@@ -1,4 +1,5 @@
-#include "TrackPar.h"
+//#include "TrackPar.h"
+#include "DetectorsBase/Track.h"
 #include "o2cont.h"
 #include <TFile.h>
 #include <fstream>
@@ -6,6 +7,8 @@
 
 void  writeToBinFile(const char* ptr, int nbytes, const char* fname="containerTest.bin");
 char* readFromBinFile(int& nread, const char* fname="containerTest.bin");
+
+using namespace o2::Base::Track;
 
 void tst()
 {
@@ -20,7 +23,7 @@ void tst()
 
   // container for objects of type TrackParCov
   // and user info object type int
-  Container<TrackParCov,int> cnt;
+  Container<o2::Base::Track::TrackParCov,int> cnt;
 
   // set user info (data identifier etc.)
   cnt.setUserInfo(0xdeadbeaf);
@@ -48,7 +51,7 @@ void tst()
   // read back
   TFile* flin = TFile::Open("contobj.root");
   //  Container<TrackParCov,int>
-  auto cntroot = reinterpret_cast<Container<TrackParCov,int>*>(flin->Get("cntw"));
+  auto cntroot = reinterpret_cast<Container<o2::Base::Track::TrackParCov,int>*>(flin->Get("cntw"));
   flin->Close();
   delete flin;
   //
@@ -68,7 +71,7 @@ void tst()
   // to create new buffer but just take ownership of the buffer pointed by pntr
   // 
   // nb is passed just for consistency check
-  Container<TrackParCov,int> cntb0(pntr,false,nb); 
+  Container<o2::Base::Track::TrackParCov,int> cntb0(pntr,false,nb); 
 
   
   // Write to bin file the raw pointer resetting the original object
@@ -83,7 +86,7 @@ void tst()
   // "true" indicates that the raw pointer is currently managed, so that the new container must 
   // create new buffer and copy the content
   // -1 (default) indicates no request for buffer size consistency check
-  Container<TrackParCov,int> cntb1(tmpPtr.get(),true,-1);
+  Container<o2::Base::Track::TrackParCov,int> cntb1(tmpPtr.get(),true,-1);
   delete[] tmpPtr.release(); // just to dispose unnecessary buffer
 
   //======================================================================
