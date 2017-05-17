@@ -1,16 +1,18 @@
 #ifndef O2CONT_H
 #define O2CONT_H
 
+#include <TTree.h>
+#include <TBranch.h>
 #include <TBuffer.h>
 #include <TObject.h>
 #include <memory>
 #include <algorithm>
 #include <type_traits>
+#include <stdexcept>
+#include <iostream>
 
 //using bufType = std::int8_t;
-///using sizeType = std::int32_t;
-typedef std::int8_t bufType;
-typedef std::int32_t sizeType;
+using sizeType = int;
 
 template <class T, class H>
   class Container: public TObject {
@@ -19,12 +21,19 @@ template <class T, class H>
   
   struct Header {
     H         userInfo;         // user assigned data info
-    int       expandPolicy;     // user assigned policy: n>0 -> new=old+n, n<=0 -> new=2*(old+n)  
+    int       expandPolicy;     // user assigned policy: n>0 -> new=old+n, n<=0 -> new=2*(old+n)
+    sizeType  sizeInBytes;      // total booked size
     sizeType  nObjects;         // number of objects stored
   };
 
   // main constructor
   Container(sizeType iniSize=0, int expPol=-100);
+
+  // construct from received raw pointer on the existing buffer, see recreate comments
+  Container(char* rawptr, bool copy, sizeType nbytes=-1)  : mPtr(nullptr) {recreate(rawptr,copy,nbytes);}
+
+  // recreate container from received raw pointer on the existing buffer
+  void  recreate(char* rawptr, bool copy, sizeType nbytes=-1);
   
   /// set/get data info (user defined)
   void  setUserInfo(const H& val);
@@ -38,7 +47,7 @@ template <class T, class H>
   sizeType size()                const {return getHeader()->nObjects;}
 
   /// get currently booked capacity
-  sizeType capacity()            const {return (mBooked-dataOffset)/sizeof(T);}
+  sizeType capacity()            const {return (sizeInBytes()-dataOffset)/sizeof(T);}
 
   /// get i-th object pointer w/o boundary check
   T*    operator[](sizeType i)   const {return getData()+i;}
@@ -68,26 +77,34 @@ template <class T, class H>
   void  expand();
 
   /// get raw pointer
-  bufType*            getPtr()    const {return mPtr.get();}
+  char*               getPtr()    const {return mPtr.get();}
 
+  /// returns a buffer pointer (releases the ownership) and reset the container
+  char*               release();
+
+  /// return total size in bytes
+  sizeType            sizeInBytes() const {return getHeader()->sizeInBytes;}
+
+  void AddToTree(TTree* tree, const std::string& brName) const;
+  
  protected:
 
   /// cast the head of container buffer to internal layout
   Header*             getHeader() const {return reinterpret_cast<Header*>(getPtr());}
   T*                  getData()   const {return reinterpret_cast<T*>(getPtr()+dataOffset);}
+
   /// return next free slot, for "new with placement" creation, not LValue
   T*                  nextFreeSlot();
   
   // offset of data wrt buffer start: account for Header + padding after Header block to respect T alignment
   constexpr static sizeType dataOffset = sizeof(Header) + sizeof(Header)%alignof(T); 
-
+  
   /// get pointer on the container
-  // std::unique_ptr<bufType> getUPtr()  const {return mPtr;}
+  // std::unique_ptr<char[]> getUPtr()  const {return mPtr;}
   
  protected:
   
-  sizeType mBooked;                 ///< number of words booked, used for persistency only
-  std::unique_ptr<bufType[]> mPtr;  //->  ///[mBooked] pointer on continuos block containing full object data
+  std::unique_ptr<char[]> mPtr;  // pointer on continuos block containing full object data
 
   ClassDef(Container,1)
 };
@@ -96,7 +113,7 @@ template <class T, class H>
 
 //-------------------------------------------------------------------
 template <class T, class H>
-  Container<T,H>::Container(sizeType iniSize, int expPol) : mBooked(0), mPtr()
+  Container<T,H>::Container(sizeType iniSize, int expPol) : mPtr(nullptr)
   {
     /**
      * Creates container for objects of 
@@ -114,6 +131,60 @@ template <class T, class H>
 
 //-------------------------------------------------------------------
 template <class T, class H>
+  void Container<T,H>::recreate(char* rawPtr, bool copy, sizeType nbytes)
+{
+  /**
+   * recreates container buffer from provided raw pointer 
+   * rawPtr: pointer extracted from the container of simular type using e.g. getPtr() or release() methods
+   * nbytes: expected size of the buffer in bytes, used for error check
+   * copy  : if true, create copy of the array (this is must if the new rawPtr is managed by other object, 
+   *         e.g. was obtained via Container::getPtr())
+   *         if false, then the new object will assume ownership over rawPtr
+   */
+  
+  {
+    std::unique_ptr<char[]> dum(mPtr.release()); // destroy old buffer if any (== delete[] mPtr.release())
+  }
+  
+  try {
+    if (rawPtr==nullptr) {
+      throw "invalid arguments:";
+    }
+  } catch(const char* msg) {
+    std::cerr << msg << " rawPtr is null" << std::endl;
+    exit(1);
+  }
+  try {
+    if (nbytes>=0 && (nbytes<dataOffset)) {
+      throw "invalid arguments:";
+    }
+  } catch(const char* msg) {
+    std::cerr << msg << "wrong size " << nbytes <<  " at least " << dataOffset << " expected" << std::endl;
+    exit(1);      
+  }
+  
+  sizeType nbDecoded = (reinterpret_cast<Header*>(rawPtr))->sizeInBytes;
+  try {
+    if (nbytes>=0 && (nbytes!=nbDecoded)) {
+      throw "invalid arguments:";
+    }
+  } catch(const char* msg) {
+    std::cerr << msg << "supplied size " << nbytes <<  " differs from decoded size " << nbDecoded << std::endl;
+    exit(1);      
+  }
+  
+  if (copy) {
+    mPtr.reset(new char[nbDecoded]());
+    std::copy(rawPtr,rawPtr+nbDecoded,mPtr.get());
+  }
+  else {
+    mPtr.reset(rawPtr);
+  }
+  
+}
+
+//-------------------------------------------------------------------
+template <class T, class H>
   void Container<T,H>::reserve(sizeType n)
 {
   /**
@@ -123,11 +194,11 @@ template <class T, class H>
   if (n<0) n = 0;
   sizeType bookSize = dataOffset + n*sizeof(T);
   //  auto tmpPtr = std::move(mPtr);
-  std::unique_ptr<bufType[]> tmpPtr(new bufType[bookSize]());
+  std::unique_ptr<char[]> tmpPtr(new char[bookSize]());
+  if (mPtr!=nullptr) std::copy(mPtr.get(), mPtr.get()+std::min(bookSize,sizeInBytes()), tmpPtr.get());  
   mPtr.swap(tmpPtr);
-  std::copy(tmpPtr.get(), tmpPtr.get()+std::min(bookSize,mBooked), mPtr.get());
   if (n<getHeader()->nObjects) getHeader()->nObjects = n;
-  mBooked = bookSize;
+  getHeader()->sizeInBytes = bookSize;
 }
 
 //-------------------------------------------------------------------
@@ -148,8 +219,8 @@ template <class T, class H>
   /**
    * expand container according to expansion policy
    */
-  sizeType oldSize = capacity();
-  sizeType newSize = getExpandPolicy()<0 ? 2*std::max(oldSize-getExpandPolicy(),1) : oldSize+getExpandPolicy();
+  auto oldSize = capacity();
+  auto newSize = getExpandPolicy()<0 ? 2*std::max(oldSize-getExpandPolicy(),1) : oldSize+getExpandPolicy();
   reserve(newSize);
 }
 
@@ -198,7 +269,8 @@ template <class T, class H>
 }
 
 //-------------------------------------------------------------------
-template<class T, class H> template <typename ...Args> T* Container<T,H>::emplace_back(Args&&... args) 
+template<class T, class H> template <typename ...Args>
+  T* Container<T,H>::emplace_back(Args&&... args) 
 {
   /**
    * Create copy of the object in the end of the container
@@ -210,7 +282,22 @@ template<class T, class H> template <typename ...Args> T* Container<T,H>::emplac
   return slot;
 }
 
-/*
+//-------------------------------------------------------------------
+template<class T, class H>
+  char* Container<T,H>::release()
+{
+  /**
+   * returns a buffer pointer (releasing the ownership) and reset the container
+   * 
+   */
+  char* ptr = mPtr.release();
+  reserve(0);
+  setUserInfo( reinterpret_cast<Header*>(ptr)->userInfo );
+  setExpandPolicy( reinterpret_cast<Header*>(ptr)->expandPolicy );
+  return ptr;
+}
+
+
 //-------------------------------------------------------------------
 template<class T, class H>
   void Container<T,H>::Streamer(TBuffer &b)
@@ -218,14 +305,53 @@ template<class T, class H>
    if (b.IsReading()) {
      Int_t n;
      b >> n;
-     mBooked = n;
-     char* tmp=0;
-     b.ReadFastArray(tmp,n);
-     mPtr.reset((bufType*)tmp);
+     std::unique_ptr<char[]> dum(mPtr.release());
+     mPtr.reset(new char[n]());
+     b.ReadFastArray(mPtr.get(),n);
    } else {
-     b << int(mBooked);
-     b.WriteFastArray((char*)mPtr.get(), int(mBooked));
+     int bs = sizeInBytes();
+     b << bs;
+     b.WriteFastArray((char*)mPtr.get(), bs);
    }
 }
-*/
+
+//-------------------------------------------------------------------
+template<class T, class H>
+  void Container<T,H>::AddToTree(TTree* tree, const std::string& brName) const
+{
+  /**
+   * Add T-class objects of the container to std::vector<T> branch (create if needed) in the tree.
+   * Note that the Tree::Fill has to be called by user afterwards
+   *
+   */
+  
+  try {
+    if (tree==nullptr || !brName.size() ) {
+      throw "invalid arguments:";
+    }
+  } catch(const char* msg) {
+    std::cerr << msg << " tree: " << tree << " branchName: " << brName  << std::endl;
+    exit(1);
+  }
+
+  std::vector<T> *vc = 0;
+  TBranch* br = tree->GetBranch(brName.data());
+
+  if (!br) { // need to create branch
+    tree->Branch(brName.data(), &vc);
+    std::cout << "Added branch "<< brName << " to tree " << tree->GetName() << std::endl;
+  }
+  else {
+    vc = *reinterpret_cast<std::vector<T>**>(br->GetAddress());
+  }
+
+  // fill objects
+  auto n = size();
+  for (auto i=0;i<n;i++) {
+    (*vc).push_back( *(*this)[i] );
+  } 
+  //
+}
+
+
 #endif

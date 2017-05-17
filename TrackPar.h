@@ -72,8 +72,8 @@
           void  InvertParam();
 
           void  PrintParam()                   const;
-	  //	  void  SetPtr(float* ptr) {mptr = ptr;}
-        protected:
+
+      protected:
           // to keep this class non-virtual but derivable the c-tors and d-tor are protected
           TrackParBase() : mX{0.},mAlpha{0.} {}
           TrackParBase(float x,float alpha, const std::array<float,kNParams> &par);
@@ -83,11 +83,9 @@
           TrackParBase& operator=(const TrackParBase& src) = default;
           ~TrackParBase() = default;
           //
-	  char  mDummy = 'a';
           float mX;                   /// X of track evaluation
           float mAlpha;               /// track frame angle
           float mP[kNParams] = {0.f}; /// 5 parameters: Y,Z,sin(phi),tg(lambda),q/pT
-	  //float* mptr=0;
 	  ClassDefNV(TrackParBase,1);
       };
 

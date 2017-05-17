@@ -1,4 +1,8 @@
 *.root
+*.d
+*.bin
+*.so
+*.o
 *pcm
 *tmp
 *Dict.h
