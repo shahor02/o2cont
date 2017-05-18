@@ -1,5 +1,5 @@
-#ifndef O2CONT_H
-#define O2CONT_H
+#ifndef O2_BASE_CONTVEC_H
+#define O2_BASE_CONTVEC_H
 
 #include <TTree.h>
 #include <TBranch.h>
@@ -16,7 +16,7 @@
 using sizeType = int;
 
 template <class T, class H>
-  class Container: public TObject {
+  class ContVec: public TObject {
 
  public:
   
@@ -28,10 +28,10 @@ template <class T, class H>
   };
 
   // main constructor
-  Container(sizeType iniSize=0, int expPol=-100);
+  ContVec(sizeType iniSize=0, int expPol=-100);
 
   // construct from received raw pointer on the existing buffer, see recreate comments
-  Container(char* rawptr, bool copy, sizeType nbytes=-1)  : mPtr(nullptr) {recreate(rawptr,copy,nbytes);}
+  ContVec(char* rawptr, bool copy, sizeType nbytes=-1)  : mPtr(nullptr) {recreate(rawptr,copy,nbytes);}
 
   // recreate container from received raw pointer on the existing buffer
   void  recreate(char* rawptr, bool copy, sizeType nbytes=-1);
@@ -106,14 +106,14 @@ template <class T, class H>
   std::unique_ptr<char[]> mPtr;                //! pointer on continuos block containing full object data
   std::unique_ptr<std::vector<T>> mVecForTree; //! vector for writing objects into the tree
   
-  ClassDef(Container,1)
+  ClassDef(ContVec,1)
 };
 
 
 
 //-------------------------------------------------------------------
 template <class T, class H>
-  Container<T,H>::Container(sizeType iniSize, int expPol) : mPtr(nullptr), mVecForTree(nullptr)
+  ContVec<T,H>::ContVec(sizeType iniSize, int expPol) : mPtr(nullptr), mVecForTree(nullptr)
   {
     /**
      * Creates container for objects of 
@@ -131,14 +131,14 @@ template <class T, class H>
 
 //-------------------------------------------------------------------
 template <class T, class H>
-  void Container<T,H>::recreate(char* rawPtr, bool copy, sizeType nbytes)
+  void ContVec<T,H>::recreate(char* rawPtr, bool copy, sizeType nbytes)
 {
   /**
    * recreates container buffer from provided raw pointer 
    * rawPtr: pointer extracted from the container of simular type using e.g. getPtr() or release() methods
    * nbytes: expected size of the buffer in bytes, used for error check
    * copy  : if true, create copy of the array (this is must if the new rawPtr is managed by other object, 
-   *         e.g. was obtained via Container::getPtr())
+   *         e.g. was obtained via ContVec::getPtr())
    *         if false, then the new object will assume ownership over rawPtr
    */
   
@@ -185,7 +185,7 @@ template <class T, class H>
 
 //-------------------------------------------------------------------
 template <class T, class H>
-  void Container<T,H>::reserve(sizeType n)
+  void ContVec<T,H>::reserve(sizeType n)
 {
   /**
    * Resize container to size n. 
@@ -203,7 +203,7 @@ template <class T, class H>
 
 //-------------------------------------------------------------------
 template <class T, class H>
-  void Container<T,H>::setUserInfo(const H& v)
+  void ContVec<T,H>::setUserInfo(const H& v)
 {
   /**
    * Sets data identification field
@@ -214,7 +214,7 @@ template <class T, class H>
 
 //-------------------------------------------------------------------
 template <class T, class H>
-  void Container<T,H>::expand()
+  void ContVec<T,H>::expand()
 {
   /**
    * expand container according to expansion policy
@@ -226,7 +226,7 @@ template <class T, class H>
 
 //-------------------------------------------------------------------
 template <class T, class H>
-  void Container<T,H>::clear(bool calldestructor)
+  void ContVec<T,H>::clear(bool calldestructor)
 {
   /**
    * clear content w/o changing capacity, if requested, explicitly delete objects
@@ -243,7 +243,7 @@ template <class T, class H>
 
 //-------------------------------------------------------------------
 template <class T, class H>
-  inline T* Container<T,H>::nextFreeSlot()
+  inline T* ContVec<T,H>::nextFreeSlot()
 {
   /**
    * Return pointer on next free slot where new object will be placed.
@@ -255,7 +255,7 @@ template <class T, class H>
 
 //-------------------------------------------------------------------
 template <class T, class H>
-  T* Container<T,H>::push_back(const T& obj)
+  T* ContVec<T,H>::push_back(const T& obj)
 {
   /**
    * Create copy of the object in the end of the container
@@ -270,7 +270,7 @@ template <class T, class H>
 
 //-------------------------------------------------------------------
 template<class T, class H> template <typename ...Args>
-  T* Container<T,H>::emplace_back(Args&&... args) 
+  T* ContVec<T,H>::emplace_back(Args&&... args) 
 {
   /**
    * Create copy of the object in the end of the container
@@ -284,7 +284,7 @@ template<class T, class H> template <typename ...Args>
 
 //-------------------------------------------------------------------
 template<class T, class H>
-  char* Container<T,H>::release()
+  char* ContVec<T,H>::release()
 {
   /**
    * returns a buffer pointer (releasing the ownership) and reset the container
@@ -300,7 +300,7 @@ template<class T, class H>
 
 //-------------------------------------------------------------------
 template<class T, class H>
-  void Container<T,H>::Streamer(TBuffer &b)
+  void ContVec<T,H>::Streamer(TBuffer &b)
 {
    if (b.IsReading()) {
      Int_t n;
@@ -317,7 +317,7 @@ template<class T, class H>
 
 //-------------------------------------------------------------------
 template<class T, class H>
-  void Container<T,H>::AddToTree(TTree* tree, const std::string& brName)
+  void ContVec<T,H>::AddToTree(TTree* tree, const std::string& brName)
 {
   /**
    * Add T-class objects of the container to std::vector<T> branch (create if needed) in the tree.

@@ -7,7 +7,7 @@ TGT =	libCont.so
 DICT=	ContDict.cxx
 DICTO=	ContDict.o
 
-SRC = 	o2cont.cxx
+SRC = 	ContVec.cxx
 
 
 HDR =	$(SRC:.cxx=.h) $(O2_ROOT)/include/DetectorsBase/Track.h
@@ -18,7 +18,7 @@ OBJ = 	$(SRC:.cxx=.o)
 .PHONY: depend clean
 
 all: 	$(TGT)
-	@echo creating libAlg.so
+	@echo creating libContVec.so
 
 $(TGT):	$(OBJ) $(DICTO)
 	$(CC) $(CFLAGS)  -shared -o $(TGT) $(OBJ) $(DICTO) `root-config --ldflags` $(LFLAGS)
@@ -37,7 +37,7 @@ $(TGT):	$(OBJ) $(DICTO)
 clean:
 	rm -f *.o *~ *.so *.d *Dict.{h,cxx} *.pcm
 
-$(DICT): $(HDR) ContLinkDef.h
+$(DICT): $(HDR) ContVecLinkDef.h
 	rootcint -f $@ -c $(INC) $(HDR) $^
 
 
