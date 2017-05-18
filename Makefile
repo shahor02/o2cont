@@ -1,6 +1,6 @@
 # for C++ define  CC = g++
 CC = g++
-CFLAGS = -g -Wall -Weffc++ -fPIC -m64 -std=c++11
+CFLAGS = -g -Wall -Weffc++ -fPIC -m64 -std=c++14
 LFLAGS = -L$(ROOTSYS)/lib -L$(O2_ROOT)/lib
 INC =	-I$(ROOTSYS)/include  -I$(O2_ROOT)/include  -I./
 TGT =	libCont.so

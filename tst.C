@@ -9,6 +9,7 @@ void  writeToBinFile(const char* ptr, int nbytes, const char* fname="containerTe
 char* readFromBinFile(int& nread, const char* fname="containerTest.bin");
 
 using namespace o2::Base::Track;
+using namespace o2::Base::Container;
 
 void tst()
 {

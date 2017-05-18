@@ -13,6 +13,10 @@
 #include <iostream>
 
 
+namespace o2 {
+namespace Base {
+namespace Container {
+
 using sizeType = int;
 
 template <class T, class H>
@@ -351,7 +355,10 @@ template<class T, class H>
   for (auto i=0;i<n;i++) {
     vp->push_back( *(*this)[i] );
   } 
+}
 
+}
+}
 }
 
 #endif
